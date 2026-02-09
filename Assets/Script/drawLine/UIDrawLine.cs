@@ -1,20 +1,24 @@
 
 using System.Collections.Generic;
-
+using System.Xml.Schema;
+using Unity.VisualScripting;
 using UnityEngine;
-
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 
 
 namespace SCG
 {
-    public class UIDrawLine : MonoBehaviour
+    public class UIDrawLine : MonoBehaviour,IDragHandler,IBeginDragHandler,IEndDragHandler, IDropHandler,IPointerClickHandler
+        ,IPointerDownHandler
     {
         public int cellX = 3;
         public int cellY = 3;
         public float spaceX = 250;
         public float spaceY = 250;
+        public UVertex currentSelectObj;
+        public UVertex lastSelectObj;
         GameObject linkLineNode;
         List<UVertex> allUIVertexs;
         List<UILine> allLines;
@@ -61,10 +65,11 @@ namespace SCG
                     allUIVertexs.Add(vartex);
                 }
             }
-            //for (int i = 0; i < allUIVertexs.Count - 1; i++)
-            //{
-            //    LinkLine(allUIVertexs[i], allUIVertexs[i + 1]);
-            //}
+            //
+            //6,7,8
+            //3,4,5
+            //0,1,2
+            //
             List<int> drawList = new List<int>()
             {
                 0,1,1,2,2,5,5,8,8,7,7,6,6,3,3,0,3,4,4,5,7,4,4,1
@@ -74,7 +79,7 @@ namespace SCG
                 LinkLine(drawList[i], drawList[i + 1]);
                 i += 2;
             }
-           
+            
         }
         public GameObject testForm;
         public GameObject testTo;
@@ -230,6 +235,97 @@ namespace SCG
                 item?.ShowActive(show); 
             }
 
+        }
+        Vector2 ToLocalPos(PointerEventData eventData)
+        {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(this.rect, eventData.position, Camera.main, out Vector2 localPos);
+            return localPos;
+        }
+        public void OnDrag(PointerEventData eventData)
+        {
+            var localPos = ToLocalPos(eventData);
+           
+            LinkLine(this.currentSelectObj, null);
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            DrawHighLight(currentSelectObj, false);
+            DrawHighLight(lastSelectObj, false);
+            this.currentSelectObj = null;
+            this.lastSelectObj = null; 
+        }
+
+        public void OnDrop(PointerEventData eventData)
+        {
+            
+        }
+        bool IsPosNearly(Vector2 posA,Vector2 posB)
+        {
+            var rect = (allUIVertexs[0].go.transform as RectTransform);
+            var halfWidth = rect.rect.width / 2f;
+            var halfHeight = rect.rect.height / 2f;
+            if (Mathf.Abs(posA.x - posB.x) <= halfWidth && Mathf.Abs(posA.y - posB.y) <= halfHeight)
+            {
+                return true;
+            }
+            return false;
+        }
+        //根据点击的点子选择最近的点 
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            var localPos = ToLocalPos(eventData);            
+            bool hasClickObj = false;
+            lastSelectObj = this.currentSelectObj;
+            foreach (var item in allUIVertexs)
+            {
+                if(IsPosNearly((item.go.transform as RectTransform).localPosition, localPos))
+                {
+                    hasClickObj = true;
+                    if(this.currentSelectObj != item)
+                    {
+                        this.currentSelectObj = item;
+                    }                                        
+                    break;
+                }
+            } 
+            if(hasClickObj)
+            {
+                if (this.currentSelectObj != this.lastSelectObj)
+                {
+                    OnSelectObj(currentSelectObj, lastSelectObj);
+                }
+            }
+            
+        }
+        void DrawHighLight(UVertex vertext,bool bShow = true)
+        {
+            if (vertext == null) return;
+            var go = vertext.go;
+            go.GetComponent<Image>().color = bShow ? Color.green : Color.white;
+        }
+        void OnSelectObj(UVertex curSelect,UVertex lastSelect)
+        {
+            if(lastSelect == null)
+            {
+                DrawHighLight(curSelect);
+            }
+            else
+            {
+                DrawHighLight(curSelect,true);
+                DrawHighLight(lastSelect,false);
+            }
+            Debug.Log("当前选中的点为" + curSelect.go.name + ",id = " + curSelect.id);
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            
         }
     }
 }
