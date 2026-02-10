@@ -1,4 +1,5 @@
 
+using System;
 using System.Collections.Generic;
 using System.Xml.Schema;
 using Unity.VisualScripting;
@@ -19,10 +20,12 @@ namespace SCG
         public float spaceY = 250;
         public UVertex currentSelectObj;
         public UVertex lastSelectObj;
+        public Button resetButton;
         GameObject linkLineNode;
         List<UVertex> allUIVertexs;
         List<UILine> allLines;
         RectTransform rect;
+        UIDrawPrevivew previewDrawLine;
         RectTransform Rect
         {
             get
@@ -31,6 +34,24 @@ namespace SCG
                 return rect;
             }
 
+        }
+        void Awake()
+        {
+            var preview = new GameObject("",typeof(RectTransform));
+            preview.name = "drawLinePreview";
+            preview.transform.SetParent(this.transform, false);
+            previewDrawLine = new UIDrawPrevivew(preview);
+            DrawMap();
+            resetButton?.onClick.AddListener(OnClickReset);
+        }
+        void OnClickReset()
+        {
+            previewDrawLine?.CleanAll();
+            DrawHighLight(currentSelectObj, false);
+            DrawHighLight(lastSelectObj, false);
+            this.currentSelectObj = null;
+            this.lastSelectObj = null;
+            previewDrawLine = null;
         }
         void CreateLinkLineNode()
         {
@@ -236,16 +257,49 @@ namespace SCG
             }
 
         }
+        Vector2 GetRectUIPos(GameObject go)
+        {
+            return (go.transform as RectTransform).anchoredPosition;
+        }
         Vector2 ToLocalPos(PointerEventData eventData)
         {
             RectTransformUtility.ScreenPointToLocalPointInRectangle(this.rect, eventData.position, Camera.main, out Vector2 localPos);
             return localPos;
         }
+
         public void OnDrag(PointerEventData eventData)
         {
-            var localPos = ToLocalPos(eventData);
-           
-            LinkLine(this.currentSelectObj, null);
+            if (this.currentSelectObj == null) return;
+            var localPos = ToLocalPos(eventData);//当前光标滑动到的位置 
+            //记录的位置，当游戏走过一个点则记录一下
+            var startPos = (this.currentSelectObj.go.transform as RectTransform).anchoredPosition;
+            
+            UILine uline = null; 
+            foreach(var line in allLines)
+            {
+                if(IsInLine(line, startPos,localPos,10))
+                {
+                    uline = uline ?? line;                    
+                    break;
+                }                
+            }
+            if (uline == null) return;
+            this.previewDrawLine.DrawLine(currentSelectObj, localPos);
+            CheckVertex();
+            CheckOk();
+
+        }
+        //简单当前距离自己最近的顶点是哪个 然后它是否被绘制过 
+        void CheckVertex()
+        {
+
+        }
+        /// <summary>
+        /// 检查是否完成了一笔画 
+        /// </summary>
+        void CheckOk()
+        {
+
         }
 
         public void OnBeginDrag(PointerEventData eventData)
@@ -255,22 +309,74 @@ namespace SCG
 
         public void OnEndDrag(PointerEventData eventData)
         {
-            DrawHighLight(currentSelectObj, false);
-            DrawHighLight(lastSelectObj, false);
-            this.currentSelectObj = null;
-            this.lastSelectObj = null; 
+           
         }
 
         public void OnDrop(PointerEventData eventData)
         {
             
         }
-        bool IsPosNearly(Vector2 posA,Vector2 posB)
+
+        bool IsInSameDir(UILine line, Vector2 startPos, Vector2 endPos)
+        {
+            var posDir = endPos - startPos;
+            //这里只判断了向量的方向 同时还需要结合 点子的区间是否落在线和线之间 
+            var lineDir = GetRectUIPos(line.to.go) - GetRectUIPos(line.form.go);
+            var cosValue = Vector2.Dot(lineDir.normalized, posDir.normalized);
+            var reverseLineDir = -lineDir;
+            var otherCosValue = Vector2.Dot(reverseLineDir.normalized, posDir.normalized);
+
+
+
+            return cosValue >= 0.98f || otherCosValue >= 0.98f;
+        }
+        public bool IsInLine(UILine line,Vector2 startPos, Vector2 p, float tolerance = 5f)
+        {
+            var a = GetRectUIPos(line.form.go);
+            var b = GetRectUIPos(line.to.go);
+            return IsInLine(a, b, p, tolerance);
+        }
+
+        public bool IsInLine(Vector2 a, Vector2 b, Vector2 p, float threshold = 5f, float epsilon = 1e-5f)
+        {
+            // 线段向量
+            Vector2 ab = b - a;
+            float abSqrLen = ab.sqrMagnitude;
+
+            // 退化情况：A 和 B 几乎重合
+            if (abSqrLen < epsilon)
+            {
+                return Vector2.Distance(p, a) <= threshold;
+            }
+
+            // 计算投影参数 t（0~1 在线段内）
+            float t = Vector2.Dot(p - a, ab) / abSqrLen;
+
+            // 不在线段范围内
+            if (t < -epsilon || t > 1f + epsilon)
+                return false;
+
+            // 投影点
+            Vector2 projection = a + t * ab;
+
+            // 点到线段的距离
+            float distance = Vector2.Distance(p, projection);
+
+            return distance <= threshold;
+        }
+        bool IsPosNearly(Vector2 posA,Vector2 posB,float thresholdHeight = 0,float thresholdWidth = 0)
         {
             var rect = (allUIVertexs[0].go.transform as RectTransform);
-            var halfWidth = rect.rect.width / 2f;
-            var halfHeight = rect.rect.height / 2f;
-            if (Mathf.Abs(posA.x - posB.x) <= halfWidth && Mathf.Abs(posA.y - posB.y) <= halfHeight)
+            if(thresholdHeight == 0)
+            {
+                thresholdHeight = rect.rect.height / 2f;
+            }
+            if (thresholdWidth == 0)
+            {
+                thresholdWidth = rect.rect.width / 2f;
+            }
+            
+            if (Mathf.Abs(posA.x - posB.x) <= thresholdWidth && Mathf.Abs(posA.y - posB.y) <= thresholdHeight)
             {
                 return true;
             }
