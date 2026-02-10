@@ -26,6 +26,7 @@ namespace SCG
         List<UILine> allLines;
         RectTransform rect;
         UIDrawPrevivew previewDrawLine;
+        public Text curSelectTextInfo;
         RectTransform Rect
         {
             get
@@ -197,7 +198,7 @@ namespace SCG
         }
         [ShowInInspector("隐藏/显示所有")]
         void HideAll(bool isHide)
-        {
+    {
             if(allLines != null)
             {
                 for(int  i = allLines.Count- 1; i >= 0; --i)
@@ -285,13 +286,27 @@ namespace SCG
             }
             if (uline == null) return;
             this.previewDrawLine.DrawLine(currentSelectObj, localPos);
-            CheckVertex();
+            CheckVertex(uline,localPos);
             CheckOk();
 
         }
         //简单当前距离自己最近的顶点是哪个 然后它是否被绘制过 
-        void CheckVertex()
+        void CheckVertex(UILine line, Vector2 curPos)
         {
+            var from = this.currentSelectObj == line.form ? line.form : line.to;
+            var to = from == line.form ? line.to : line.form;
+            
+            var ab = GetRectUIPos(to.go) - GetRectUIPos(from.go);
+            var dir = curPos - GetRectUIPos(currentSelectObj.go);
+            float k = Vector2.Dot(dir, ab) / ab.sqrMagnitude;
+            if (k >= 0.98f)
+            {
+                
+               
+                this.currentSelectObj = line.to;
+            }
+            this.curSelectTextInfo.text = currentSelectObj.go.name;
+            Debug.Log($"比例{k}");
 
         }
         /// <summary>
@@ -317,19 +332,7 @@ namespace SCG
             
         }
 
-        bool IsInSameDir(UILine line, Vector2 startPos, Vector2 endPos)
-        {
-            var posDir = endPos - startPos;
-            //这里只判断了向量的方向 同时还需要结合 点子的区间是否落在线和线之间 
-            var lineDir = GetRectUIPos(line.to.go) - GetRectUIPos(line.form.go);
-            var cosValue = Vector2.Dot(lineDir.normalized, posDir.normalized);
-            var reverseLineDir = -lineDir;
-            var otherCosValue = Vector2.Dot(reverseLineDir.normalized, posDir.normalized);
-
-
-
-            return cosValue >= 0.98f || otherCosValue >= 0.98f;
-        }
+        
         public bool IsInLine(UILine line,Vector2 startPos, Vector2 p, float tolerance = 5f)
         {
             var a = GetRectUIPos(line.form.go);
