@@ -12,6 +12,8 @@ namespace SCG
         public UVertex to;
         public int id;
         public GameObject go;
+
+        public bool isReacth = false;
         public bool IsShow { get; set; } = true;
         private static string linePrefabUrl = "Assets/Art/Test/Line.prefab";
         private static bool showIdOrName = false;

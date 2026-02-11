@@ -18,8 +18,33 @@ namespace SCG
         public int cellY = 3;
         public float spaceX = 250;
         public float spaceY = 250;
-        public UVertex currentSelectObj;
-        private Stack<UVertex> recordUVertex;
+        public UVertex currentSelectObj
+        {
+            get
+            {
+                selectStack = selectStack ?? new();
+                if(selectStack.Count == 0 )
+                {
+                    return null;
+                }
+                return selectStack.Peek();
+            }
+            set
+            {
+                selectStack = selectStack ?? new();
+                if (selectStack.Count == 0)
+                {
+                    selectStack.Push(value);
+                    return;
+                }
+                if(selectStack.Peek() != value)
+                {
+                    selectStack.Push(value);
+                }
+            }
+        }
+        private Stack<UVertex> selectStack;
+        private Stack<UILine> recordUVertex;
         public UVertex lastSelectObj;
         public UVertex startVertex;
         public Button resetButton;
@@ -49,25 +74,22 @@ namespace SCG
         }
         void OnClickReset()
         {
-            if(startVertex != null)
+            selectStack?.Clear();
+            foreach (var ver in allUIVertexs)
             {
-                SetNodeColor(startVertex.go, Color.white);                
-            }
-            while (recordUVertex != null && recordUVertex.Count >0 )
-            {
-                SetNodeColor(recordUVertex.Pop().go,Color.white);
+                SetNodeColor(ver.go, Color.white);
             }
             recordUVertex?.Clear();
             foreach (var line in allLines)
             {
-                line.form.isReached = false;
-                line.to.isReached = false;
+                line.isReacth = false;
+                
             }
             previewDrawLine?.CleanAll();
             
         
-            this.currentSelectObj = null;
-            this.lastSelectObj = null;
+       
+   
             startVertex = null;
             
         }
@@ -277,14 +299,18 @@ namespace SCG
             }
 
         }
+        Vector2 GetRectUIPos(UVertex vertex)
+        {
+            return GetRectUIPos(vertex.go);
+        }
         Vector2 GetRectUIPos(GameObject go)
         {
             return (go.transform as RectTransform).anchoredPosition;
         }
         Vector2 ToLocalPos(PointerEventData eventData)
         {
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(this.rect, eventData.position, Camera.main, out Vector2 localPos);
-            return localPos;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(this.rect, eventData.position, Camera.main, out Vector2 p);
+            return p;
         }
         float GetK(UILine line,Vector2 curPos)
         {
@@ -298,50 +324,52 @@ namespace SCG
         }
         public void OnDrag(PointerEventData eventData)
         {
-            if (this.currentSelectObj == null) return;
-            var localPos = ToLocalPos(eventData);//当前光标滑动到的位置 
-            //记录的位置，当游戏走过一个点则记录一下
-            var startPos = (this.currentSelectObj.go.transform as RectTransform).anchoredPosition;
-            
+            if (this.currentSelectObj == null) return; // 没有当前选中节点 直接忽略 
+            var p = ToLocalPos(eventData);//当前光标滑动到的位置                    
             UILine uline = null; 
             foreach(var line in allLines)
             {
-                if(IsInLine(line, startPos,localPos,50))
+                if(IsInLine(line ,p,50)) // 50为threshold值 一定程度上上下左右偏移一点像素也算是一条直线 
                 {
                     uline = uline ?? line;                    
                     break;
                 }                
             }
-            if (uline == null) return;
-
+            if (uline == null) return; // 拖拽的点 不在线条上 直接忽略 
            
             var from = this.currentSelectObj == uline.form ? uline.form : uline.to;
             var to = from == uline.form ? uline.to : uline.form;
-            var k = Mathf.Clamp( GetK(uline, localPos),0f,1f);
-            
-            if(previewDrawLine.HasDrawLine(uline) && recordUVertex != null && recordUVertex.Count > 0&& recordUVertex.Peek().isReached && k < 0.95f) // 如果在回退 
-            {
-                recordUVertex.Pop().isReached = false;
+            var k = Mathf.Clamp( GetK(uline, p),0f,1f);
 
-                if(recordUVertex.Count > 0)
-                {
-                    this.currentSelectObj = recordUVertex.Peek();
-                    
-                    SetCurrentStartVertex(currentSelectObj);
-                }
-                else
-                {
-                    SetCurrentStartVertex(startVertex);
-                    currentSelectObj = startVertex;
-                }
-                from = this.currentSelectObj == uline.form ? uline.form : uline.to;
-                to = from == uline.form ? uline.to : uline.form;
-                k = Mathf.Clamp(GetK(uline, localPos), 0f, 1f);
+            UILine lastRecordLine = (recordUVertex != null && recordUVertex.Count > 0) ? recordUVertex.Peek() : null;
+
+
+            if ((lastRecordLine == uline) && k < 0.95f) // 如果在回退 
+            {
+                
+                uline.isReacth = false;
+                recordUVertex.Pop();
+                selectStack.Pop();
+                SetCurrentStartVertex(currentSelectObj);
+                
+
+                OnDrag(eventData);
+                return;
             }
-            var modifyLocalPos = GetRectUIPos( from.go) + k * (GetRectUIPos(to.go) - GetRectUIPos(from.go));
+            CheckVertex(uline, from, to, k, p);
+            if (!uline.isReacth)
+            {
+                Debug.Log($"调试2,{from} - {to} - {currentSelectObj}绘制{uline}设置比例{k}");
+                this.previewDrawLine.DrawLine(currentSelectObj, uline, k);
+            }
+            else
+            {
+                this.previewDrawLine.DrawLine(currentSelectObj, uline, 1);
+            }
             
-            this.previewDrawLine.DrawLine(currentSelectObj,uline, k);
-            CheckVertex(uline,from,to, k,localPos);
+            
+            
+            
             CheckOk();
 
         }
@@ -351,8 +379,8 @@ namespace SCG
             if (k >= 0.95f)
             {
                 recordUVertex = recordUVertex ?? new();
-                recordUVertex.Push(to);
-                to.isReached = true;
+                recordUVertex.Push(line);
+                line.isReacth = true;
                 if(this.currentSelectObj != startVertex)
                 {
                     SetNodeColor(currentSelectObj.go, Color.white);
@@ -362,11 +390,11 @@ namespace SCG
                     SetNodeColor(to.go, Color.black);
                 }
                 
-                this.lastSelectObj = this.currentSelectObj;
+           
                 this.currentSelectObj = to;
             }
             this.curSelectTextInfo.text = currentSelectObj.go.name;
-            Debug.Log($"比例{k}");
+           
 
         }
         /// <summary>
@@ -393,7 +421,7 @@ namespace SCG
         }
 
         
-        public bool IsInLine(UILine line,Vector2 startPos, Vector2 p, float tolerance = 5f)
+        public bool IsInLine(UILine line , Vector2 p, float tolerance = 5f)
         {
             var a = GetRectUIPos(line.form.go);
             var b = GetRectUIPos(line.to.go);
@@ -452,12 +480,12 @@ namespace SCG
             {
                 return;
             }
-            var localPos = ToLocalPos(eventData);            
+            var p = ToLocalPos(eventData);            
             bool hasClickObj = false;
-            lastSelectObj = this.currentSelectObj;
+         
             foreach (var item in allUIVertexs)
             {
-                if(IsPosNearly((item.go.transform as RectTransform).localPosition, localPos))
+                if(IsPosNearly((item.go.transform as RectTransform).localPosition, p))
                 {
                     hasClickObj = true;
                     if(this.currentSelectObj != item)

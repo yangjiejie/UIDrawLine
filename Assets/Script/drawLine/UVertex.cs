@@ -13,7 +13,8 @@ namespace SCG
         public GameObject go;
         public int id;
         public bool isShow = true;
-        public bool isReached = false;
+        public bool _isReached;
+      
         public override string ToString()
         {
             return $"{id}";
