@@ -336,7 +336,11 @@ namespace SCG
                 }                
             }
             if (uline == null) return; // 拖拽的点 不在线条上 直接忽略 
-           
+            if(currentSelectObj != uline.form && currentSelectObj != uline.to)
+            {
+                Debug.LogError("异常");
+                return;
+            }
             var from = this.currentSelectObj == uline.form ? uline.form : uline.to;
             var to = from == uline.form ? uline.to : uline.form;
             var k = Mathf.Clamp( GetK(uline, p),0f,1f);
@@ -486,28 +490,24 @@ namespace SCG
                 return;
             }
             var p = ToLocalPos(eventData);            
-            bool hasClickObj = false;
+           
          
             foreach (var item in allUIVertexs)
             {
                 if(IsPosNearly((item.go.transform as RectTransform).localPosition, p))
                 {
-                    hasClickObj = true;
-                    if(this.currentSelectObj != item)
+                    
+                    if(currentSelectObj != item)
                     {
+                        DrawHighLight(currentSelectObj,false);
                         this.currentSelectObj = item;
-                    }                                        
+                        DrawHighLight(currentSelectObj);
+                    }
+                    startVertex = this.currentSelectObj;
                     break;
                 }
             } 
-            if(hasClickObj)
-            {
-                startVertex = this.currentSelectObj;
-                if (this.currentSelectObj != this.lastSelectObj)
-                {
-                    OnSelectObj(currentSelectObj, lastSelectObj);
-                }
-            }
+          
             
         }
         void DrawHighLight(UVertex vertext,bool bShow = true)
