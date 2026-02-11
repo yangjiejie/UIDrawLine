@@ -35,6 +35,7 @@ namespace SCG
         }
         public void DrawLine(UVertex vertex,Vector2 endPos,float lineWidth = 33)
         {
+            if (vertex == null) return;
             GameObject go = null;
             if(!uvMap.ContainsKey(vertex))
             {
@@ -74,6 +75,10 @@ namespace SCG
                 }
             }
             uvMap.Clear();
+        }
+        public bool HasDrawer()
+        {
+            return this.uvMap.Count > 0;
         }
     }
 }

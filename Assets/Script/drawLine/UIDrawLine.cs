@@ -20,6 +20,7 @@ namespace SCG
         public float spaceY = 250;
         public UVertex currentSelectObj;
         public UVertex lastSelectObj;
+        public UVertex startVertex;
         public Button resetButton;
         GameObject linkLineNode;
         List<UVertex> allUIVertexs;
@@ -48,11 +49,13 @@ namespace SCG
         void OnClickReset()
         {
             previewDrawLine?.CleanAll();
+            
+            DrawHighLight(startVertex, false);
             DrawHighLight(currentSelectObj, false);
             DrawHighLight(lastSelectObj, false);
             this.currentSelectObj = null;
             this.lastSelectObj = null;
-            previewDrawLine = null;
+            
         }
         void CreateLinkLineNode()
         {
@@ -301,9 +304,9 @@ namespace SCG
             float k = Vector2.Dot(dir, ab) / ab.sqrMagnitude;
             if (k >= 0.98f)
             {
-                
-               
-                this.currentSelectObj = line.to;
+
+                this.lastSelectObj = this.currentSelectObj;
+                this.currentSelectObj = to;
             }
             this.curSelectTextInfo.text = currentSelectObj.go.name;
             Debug.Log($"比例{k}");
@@ -388,6 +391,10 @@ namespace SCG
         //根据点击的点子选择最近的点 
         public void OnPointerClick(PointerEventData eventData)
         {
+            if(previewDrawLine != null && this.previewDrawLine.HasDrawer())
+            {
+                return;
+            }
             var localPos = ToLocalPos(eventData);            
             bool hasClickObj = false;
             lastSelectObj = this.currentSelectObj;
@@ -405,6 +412,7 @@ namespace SCG
             } 
             if(hasClickObj)
             {
+                startVertex = this.currentSelectObj;
                 if (this.currentSelectObj != this.lastSelectObj)
                 {
                     OnSelectObj(currentSelectObj, lastSelectObj);
