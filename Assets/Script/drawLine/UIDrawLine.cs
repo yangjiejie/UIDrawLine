@@ -349,7 +349,12 @@ namespace SCG
                 
                 uline.isReacth = false;
                 recordUVertex.Pop();
-                selectStack.Pop();
+                var lastSelect = selectStack.Pop();
+                if(lastSelect != startVertex)
+                {
+                    SetNodeColor(lastSelect.go, Color.white);
+                }
+                
                 SetCurrentStartVertex(currentSelectObj);
                 
 
