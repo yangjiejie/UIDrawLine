@@ -19,6 +19,7 @@ namespace SCG
         public float spaceX = 250;
         public float spaceY = 250;
         public UVertex currentSelectObj;
+        private Stack<UVertex> recordUVertex;
         public UVertex lastSelectObj;
         public UVertex startVertex;
         public Button resetButton;
@@ -48,13 +49,26 @@ namespace SCG
         }
         void OnClickReset()
         {
+            if(startVertex != null)
+            {
+                SetNodeColor(startVertex.go, Color.white);                
+            }
+            while (recordUVertex != null && recordUVertex.Count >0 )
+            {
+                SetNodeColor(recordUVertex.Pop().go,Color.white);
+            }
+            recordUVertex?.Clear();
+            foreach (var line in allLines)
+            {
+                line.form.isReached = false;
+                line.to.isReached = false;
+            }
             previewDrawLine?.CleanAll();
             
-            DrawHighLight(startVertex, false);
-            DrawHighLight(currentSelectObj, false);
-            DrawHighLight(lastSelectObj, false);
+        
             this.currentSelectObj = null;
             this.lastSelectObj = null;
+            startVertex = null;
             
         }
         void CreateLinkLineNode()
@@ -78,7 +92,8 @@ namespace SCG
             {
                 for (int x = 0; x < cellY; x++)
                 {
-                    var go = CommonUtils.CreateGameObject("", transform, typeof(RectTransform), typeof(Image));
+                    var go = PoolManager.Get("Assets/Art/Test/node.prefab");
+                    go.transform.SetParent(this.transform, false);
                     go.layer = LayerMask.NameToLayer("UI");
                     (go.transform as RectTransform).anchoredPosition = new Vector2((x - 1) * spaceX, (y - 1) * spaceY);
 
@@ -87,6 +102,7 @@ namespace SCG
                     vartex.id = x + y * cellX;
                     
                     go.name = vartex.ToString();
+                    go.GetComponentInChildren<Text>().text = vartex.id.ToString();
                     allUIVertexs.Add(vartex);
                 }
             }
@@ -270,7 +286,16 @@ namespace SCG
             RectTransformUtility.ScreenPointToLocalPointInRectangle(this.rect, eventData.position, Camera.main, out Vector2 localPos);
             return localPos;
         }
+        float GetK(UILine line,Vector2 curPos)
+        {
+            var from = this.currentSelectObj == line.form ? line.form : line.to;
+            var to = from == line.form ? line.to : line.form;
 
+            var ab = GetRectUIPos(to.go) - GetRectUIPos(from.go);
+            var dir = curPos - GetRectUIPos(currentSelectObj.go);
+            float k = Vector2.Dot(dir, ab) / ab.sqrMagnitude;
+            return k;
+        }
         public void OnDrag(PointerEventData eventData)
         {
             if (this.currentSelectObj == null) return;
@@ -281,30 +306,62 @@ namespace SCG
             UILine uline = null; 
             foreach(var line in allLines)
             {
-                if(IsInLine(line, startPos,localPos,10))
+                if(IsInLine(line, startPos,localPos,50))
                 {
                     uline = uline ?? line;                    
                     break;
                 }                
             }
             if (uline == null) return;
-            this.previewDrawLine.DrawLine(currentSelectObj, localPos);
-            CheckVertex(uline,localPos);
+
+           
+            var from = this.currentSelectObj == uline.form ? uline.form : uline.to;
+            var to = from == uline.form ? uline.to : uline.form;
+            var k = Mathf.Clamp( GetK(uline, localPos),0f,1f);
+            
+            if(previewDrawLine.HasDrawLine(uline) && recordUVertex != null && recordUVertex.Count > 0&& recordUVertex.Peek().isReached && k < 0.95f) // 如果在回退 
+            {
+                recordUVertex.Pop().isReached = false;
+
+                if(recordUVertex.Count > 0)
+                {
+                    this.currentSelectObj = recordUVertex.Peek();
+                    
+                    SetCurrentStartVertex(currentSelectObj);
+                }
+                else
+                {
+                    SetCurrentStartVertex(startVertex);
+                    currentSelectObj = startVertex;
+                }
+                from = this.currentSelectObj == uline.form ? uline.form : uline.to;
+                to = from == uline.form ? uline.to : uline.form;
+                k = Mathf.Clamp(GetK(uline, localPos), 0f, 1f);
+            }
+            var modifyLocalPos = GetRectUIPos( from.go) + k * (GetRectUIPos(to.go) - GetRectUIPos(from.go));
+            
+            this.previewDrawLine.DrawLine(currentSelectObj,uline, k);
+            CheckVertex(uline,from,to, k,localPos);
             CheckOk();
 
         }
         //简单当前距离自己最近的顶点是哪个 然后它是否被绘制过 
-        void CheckVertex(UILine line, Vector2 curPos)
-        {
-            var from = this.currentSelectObj == line.form ? line.form : line.to;
-            var to = from == line.form ? line.to : line.form;
-            
-            var ab = GetRectUIPos(to.go) - GetRectUIPos(from.go);
-            var dir = curPos - GetRectUIPos(currentSelectObj.go);
-            float k = Vector2.Dot(dir, ab) / ab.sqrMagnitude;
-            if (k >= 0.98f)
+        void CheckVertex(UILine line,UVertex from,UVertex to,float k,  Vector2 curPos)
+        {           
+            if (k >= 0.95f)
             {
-
+                recordUVertex = recordUVertex ?? new();
+                recordUVertex.Push(to);
+                to.isReached = true;
+                if(this.currentSelectObj != startVertex)
+                {
+                    SetNodeColor(currentSelectObj.go, Color.white);
+                }
+                if(to != startVertex)
+                {
+                    SetNodeColor(to.go, Color.black);
+                }
+                
                 this.lastSelectObj = this.currentSelectObj;
                 this.currentSelectObj = to;
             }
@@ -424,7 +481,20 @@ namespace SCG
         {
             if (vertext == null) return;
             var go = vertext.go;
-            go.GetComponent<Image>().color = bShow ? Color.green : Color.white;
+            SetNodeColor(go, bShow ? Color.green : Color.white);            
+        }
+        void SetNodeColor(GameObject go,Color color)
+        {
+            go.GetComponent<Image>().color = color;
+        }
+        void SetCurrentStartVertex(UVertex vertex)
+        {
+            if (vertex == null) return;
+            if(vertex != startVertex)
+            {
+                SetNodeColor(vertex.go, Color.black);
+            }
+            
         }
         void OnSelectObj(UVertex curSelect,UVertex lastSelect)
         {

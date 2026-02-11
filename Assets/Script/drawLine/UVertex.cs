@@ -13,6 +13,7 @@ namespace SCG
         public GameObject go;
         public int id;
         public bool isShow = true;
+        public bool isReached = false;
         public override string ToString()
         {
             return $"{id}";
@@ -20,6 +21,11 @@ namespace SCG
         public void Destroy()
         {
             GameObject.Destroy(go);
+        }
+
+        public Vector2 GetPos()
+        {
+            return (go.transform as RectTransform).anchoredPosition;
         }
 
         public bool IsShow()

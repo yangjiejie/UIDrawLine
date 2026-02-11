@@ -9,7 +9,7 @@ namespace SCG
     public  class UIDrawPrevivew
     {
         private Stack<UVertex> record = new Stack<UVertex>();
-        private Dictionary<UVertex, GameObject> uvMap = new();
+        private Dictionary<UILine, GameObject> uvMap = new();
         private GameObject root = null;
         public UIDrawPrevivew(GameObject root)
         {
@@ -33,32 +33,47 @@ namespace SCG
             }
             
         }
-        public void DrawLine(UVertex vertex,Vector2 endPos,float lineWidth = 33)
+
+        public bool HasDrawLine(UILine line)
         {
-            if (vertex == null) return;
+            return uvMap.Count >0 && uvMap.ContainsKey(line);
+        }
+        public void DrawLine(UVertex startVertex,UILine line,float k,float lineWidth = 33)
+        {
+            if (line == null) return;
             GameObject go = null;
-            if(!uvMap.ContainsKey(vertex))
+            var form = startVertex == line.form ? line.form : line.to;
+            var to = form == line.form ? line.to : line.form;
+            var endPos = form.GetPos() + k * (to.GetPos() - form.GetPos());
+            if (!uvMap.ContainsKey(line))
             {
                 var lineObj = PoolManager.Get("Assets/Art/Test/Line.prefab");
-                uvMap.Add(vertex, lineObj);
-                go = uvMap[vertex];                
+                uvMap.Add(line, lineObj);
+                go = uvMap[line];                
                 go.transform.SetParent(this.root.transform, false);
-                go.Init("tmp","UI");
+                if(form == line.form)
+                {
+                    go.Init(line.ToString(), "UI");
+                }
+                else
+                {
+                    go.Init($"line{form.id}_{to.id}", "UI");
+                }
+
                 go.GetComponent<Image>().color = Color.green;
             }
             else
             {
-                go = uvMap[vertex];
-            }
-               
-            
+                go = uvMap[line];
+            }            
             var rect = go.transform as RectTransform;
-            var length = Vector2.Distance((vertex.go.transform as RectTransform).anchoredPosition, endPos);
-            var dir = endPos - (vertex.go.transform as RectTransform).anchoredPosition;
+            var length = Vector2.Distance(form.GetPos(), endPos);
+            var dir = (to.GetPos() - form.GetPos()).normalized;
+            Debug.Log($"调整{go.name}的长度为{length}");
             rect.sizeDelta = new Vector2(length, lineWidth);
             rect.pivot = new Vector2(0, 0.5f);
-        
-            var sPos = RectTransformUtility.WorldToScreenPoint(Camera.current, vertex.go.transform.position);
+           
+            var sPos = RectTransformUtility.WorldToScreenPoint(Camera.current, form.go.transform.position);
             RectTransformUtility.ScreenPointToLocalPointInRectangle(root.transform as RectTransform, sPos, Camera.current, out Vector2 localPos);
 
             rect.anchoredPosition3D = localPos;
