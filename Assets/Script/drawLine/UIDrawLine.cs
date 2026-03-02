@@ -309,7 +309,7 @@ namespace SCG
         }
         Vector2 ToLocalPos(PointerEventData eventData)
         {
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(this.rect, eventData.position, Camera.main, out Vector2 p);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(this.Rect, eventData.position, Camera.main, out Vector2 p);
             return p;
         }
         float GetK(UILine line,Vector2 curPos)
@@ -338,7 +338,7 @@ namespace SCG
             if (uline == null) return; // 拖拽的点 不在线条上 直接忽略 
             if(currentSelectObj != uline.form && currentSelectObj != uline.to)
             {
-                Debug.LogError("异常");
+                Debug.LogError($"异常{currentSelectObj},uiline = {uline}");
                 return;
             }
             var from = this.currentSelectObj == uline.form ? uline.form : uline.to;
@@ -368,7 +368,7 @@ namespace SCG
             CheckVertex(uline, from, to, k, p);
             if (!uline.isReacth)
             {
-                Debug.Log($"调试2,{from} - {to} - {currentSelectObj}绘制{uline}设置比例{k}");
+                Debug.Log($"调试2, 当前画点{currentSelectObj},绘制{from} -> {to} 绘制{uline}设置比例{k}");
                 this.previewDrawLine.DrawLine(currentSelectObj, uline, k);
             }
             else
@@ -499,7 +499,13 @@ namespace SCG
                     
                     if(currentSelectObj != item)
                     {
+
                         DrawHighLight(currentSelectObj,false);
+                        if(selectStack.Count > 0)
+                        {
+                            selectStack.Pop();
+                        }
+                        
                         this.currentSelectObj = item;
                         DrawHighLight(currentSelectObj);
                     }
