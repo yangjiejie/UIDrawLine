@@ -325,7 +325,12 @@ namespace SCG
         public void OnDrag(PointerEventData eventData)
         {
             if (this.currentSelectObj == null) return; // 没有当前选中节点 直接忽略 
-            var p = ToLocalPos(eventData);//当前光标滑动到的位置                    
+            var p = ToLocalPos(eventData);//当前光标滑动到的位置
+            if(this.previewDrawLine != null && this.previewDrawLine.HasDrawer())
+            {
+
+            }
+
             UILine uline = null; 
             foreach(var line in allLines)
             {
