@@ -1,7 +1,8 @@
 using UnityEditor;
 using System.IO;
 using UnityEngine;
-
+// 必须加这个命名空间，不然Where方法会报错
+using System.Linq;
 public class JenkinsBuild
 {
     // 打包 Windows 64 位（可根据平台修改）
@@ -27,7 +28,11 @@ public class JenkinsBuild
     public static void BuildAndroid()
     {
         string[] scenes = { "Assets/Scenes/MainScene.unity" };
-        string buildPath = $"Builds/Android/Game_{PlayerSettings.bundleVersion}.apk";
+        var sence = new EditorBuildSettingsScene[] { new EditorBuildSettingsScene(scenes[0], true) };
+
+        
+        
+        string buildPath = $"Build/Android/Game_{PlayerSettings.bundleVersion}.apk";
         BuildTarget target = BuildTarget.Android;
 
         // Android 额外配置（如 Gradle 构建、签名）
@@ -37,6 +42,6 @@ public class JenkinsBuild
         string directory = Path.GetDirectoryName(buildPath);
         if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
 
-        BuildPipeline.BuildPlayer(scenes, buildPath, target, BuildOptions.None);
+        BuildPipeline.BuildPlayer(sence, buildPath, target, BuildOptions.None);
     }
 }
