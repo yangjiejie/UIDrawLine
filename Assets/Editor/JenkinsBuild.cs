@@ -1,47 +1,72 @@
-using UnityEditor;
 using System.IO;
-using UnityEngine;
-// 必须加这个命名空间，不然Where方法会报错
 using System.Linq;
+using UnityEditor;
+using UnityEditor.Build.Reporting;
+using UnityEngine;
+
 public class JenkinsBuild
 {
-    // 打包 Windows 64 位（可根据平台修改）
-    public static void BuildWindows64()
-    {
-        // 1. 配置打包参数
-        string[] scenes = { "Assets/Scenes/MainScene.unity" }; // 替换为你的场景路径
-        string buildPath = $"Builds/Windows/Game_{PlayerSettings.bundleVersion}.exe"; // 输出路径+版本号
-        BuildTarget target = BuildTarget.StandaloneWindows64;
-        BuildOptions options = BuildOptions.None;
-
-        // 2. 创建输出目录
-        string directory = Path.GetDirectoryName(buildPath);
-        if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
-
-        // 3. 执行打包
-        Debug.Log($"[JenkinsBuild] 开始打包 {target}，输出路径：{buildPath}");
-        BuildPipeline.BuildPlayer(scenes, buildPath, target, options);
-        Debug.Log("[JenkinsBuild] 打包完成！");
-    }
-
-    // 打包 Android（示例，按需启用）
     public static void BuildAndroid()
     {
-        string[] scenes = { "Assets/Scenes/MainScene.unity" };
-        var sence = new EditorBuildSettingsScene[] { new EditorBuildSettingsScene(scenes[0], true) };
+        try
+        {
+            // 获取项目根目录（Assets文件夹的父目录）
+            // Application.dataPath 返回类似：C:/Project/Assets
+            // 去掉末尾的 "/Assets" 就是项目根目录
+            string projectRoot = Path.GetDirectoryName(Application.dataPath);
 
-        
-        
-        string buildPath = $"Build/Android/test.apk";
-        BuildTarget target = BuildTarget.Android;
+            // 或者更简洁的方式：直接使用 Application.dataPath + ".."
+            string projectRootAlt = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
 
-        // Android 额外配置（如 Gradle 构建、签名）
-        EditorUserBuildSettings.androidBuildSystem = AndroidBuildSystem.Gradle;
-        // 如需签名，配置 keystore 路径、密码（建议用 Jenkins 参数传入）
+            Debug.Log($"[JenkinsBuild] 项目根目录（来自Application.dataPath）: {projectRoot}");
+            Debug.Log($"[JenkinsBuild] 项目根目录（备用方式）: {projectRootAlt}");
 
-        string directory = Path.GetDirectoryName(buildPath);
-        if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+            // 构建输出路径
+            string apkName = $"Game_{PlayerSettings.bundleVersion}.apk";
+            string outputDir = Path.Combine(projectRoot, "Build", "Android");
+            string outputPath = Path.Combine(outputDir, apkName);
 
-        BuildPipeline.BuildPlayer(sence, buildPath, target, BuildOptions.None);
+            Debug.Log($"[JenkinsBuild] APK输出路径: {outputPath}");
+
+            // 创建目录
+            if (!Directory.Exists(outputDir))
+            {
+                Directory.CreateDirectory(outputDir);
+                Debug.Log($"[JenkinsBuild] 已创建输出目录: {outputDir}");
+            }
+            var sence = new EditorBuildSettingsScene[] { new EditorBuildSettingsScene("Assets/Scenes/main.unity", true) };
+            // 构建配置
+            BuildPlayerOptions options = new BuildPlayerOptions
+            {
+                scenes = sence
+                    .Where(s => s.enabled)
+                    .Select(s => s.path)
+                    .ToArray(),
+                locationPathName = outputPath,
+                target = BuildTarget.Android,
+                options = BuildOptions.None
+            };
+
+            // 执行构建
+            BuildReport report = BuildPipeline.BuildPlayer(options);
+
+            // 验证构建结果
+            if (report.summary.result == BuildResult.Succeeded && File.Exists(outputPath))
+            {
+                var apkSize = new FileInfo(outputPath).Length / 1024.0 / 1024.0;
+                Debug.Log($"[JenkinsBuild] ✅ 构建成功！APK大小: {apkSize:F2} MB");
+                Debug.Log($"[JenkinsBuild] ✅ APK最终路径: {outputPath}");
+            }
+            else
+            {
+                Debug.LogError($"[JenkinsBuild] ❌ 构建失败，APK不存在：{outputPath}");
+                throw new IOException("APK生成失败");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[JenkinsBuild] ❌ 构建异常: {e.Message}\n{e.StackTrace}");
+            throw;
+        }
     }
 }
