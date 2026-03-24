@@ -16,10 +16,9 @@ public class JenkinsBuild
 
         sb.Append(Application.productName);
         sb.Append("_v");
-        sb.Append(Application.version).Append(".");
+        sb.Append(Application.version);
 
-        var time = System.DateTime.Now.ToString("MMdd.HHmm");
-        sb.Append(time);
+    
         if (isApk)
         {
             sb.Append(".apk");
