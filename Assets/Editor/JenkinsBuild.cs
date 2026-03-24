@@ -9,7 +9,7 @@ using UnityEngine;
 
 public class JenkinsBuild
 {
-
+    private static bool isBuildSucess = false;
     static string GetApkName(bool isApk = true)
     {
         StringBuilder sb = new StringBuilder(); //test_baloot_v1.
@@ -38,6 +38,7 @@ public class JenkinsBuild
     {
         try
         {
+            isBuildSucess = false; 
             // 获取项目根目录（Assets文件夹的父目录）
             // Application.dataPath 返回类似：C:/Project/Assets
             // 去掉末尾的 "/Assets" 就是项目根目录
@@ -75,13 +76,14 @@ public class JenkinsBuild
                 target = BuildTarget.Android,
                 options = BuildOptions.None
             };
-
+           
             // 执行构建
             BuildReport report = BuildPipeline.BuildPlayer(options);
 
             // 验证构建结果
             if (report.summary.result == BuildResult.Succeeded && File.Exists(outputPath))
             {
+                isBuildSucess = true;
                 var apkSize = new FileInfo(outputPath).Length / 1024.0 / 1024.0;
                 Debug.Log($"[JenkinsBuild] ✅ 构建成功！APK大小: {apkSize:F2} MB");
                 Debug.Log($"[JenkinsBuild] ✅ APK最终路径: {outputPath}");
@@ -112,7 +114,7 @@ public class JenkinsBuild
             throw new InvalidOperationException("缺少环境变量 DINGTALK_WEBHOOK");
 
         // 2. 判断构建结果
-        string buildResult = Environment.GetEnvironmentVariable("BUILD_RESULT") ?? "SUCCESS";
+        
         string apkPath = Path.Combine(Directory.GetCurrentDirectory(), $"Build/Android/{GetApkName()}");
 
         // 3. 从Jenkins环境变量里拿构建信息
@@ -126,11 +128,11 @@ public class JenkinsBuild
         string markdownText;
         string title;
 
-        if ((buildResult == "SUCCESS" || buildResult == "SUCCESSFUL") && File.Exists(apkPath))
+        if (isBuildSucess)
         {
             // 构建成功且有APK
             float apkSize = new FileInfo(apkPath).Length / 1024f / 1024f;
-            string downloadUrl = $"{jenkinsUrl}job/{jobName}/{buildNumber}/artifact/Build/Android/Game_0.1.apk";
+            string downloadUrl = $"{jenkinsUrl}job/{jobName}/{buildNumber}/artifact/Build/Android/{GetApkName()}";
 
             title = "Android构建成功";
             markdownText = $"### 🚀 Android 构建成功 \n" +
