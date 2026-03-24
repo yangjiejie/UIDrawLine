@@ -12,9 +12,7 @@ public class JenkinsBuild
 
     static string GetApkName(bool isApk = true)
     {
-        StringBuilder sb = new StringBuilder(); //test_baloot_v1.
-
-       
+        StringBuilder sb = new StringBuilder();
 
         sb.Append(Application.productName);
         sb.Append("_v");
@@ -40,27 +38,59 @@ public class JenkinsBuild
         string apkName = GetApkName();
         string outputDir = Path.Combine(projectRoot, "Build", "Android");
         string outputPath = Path.Combine(outputDir, apkName);
-        return  outputPath;
+        return outputPath;
+    }
+
+    // ========== 新增：获取当前Git分支名称方法 ==========
+    private static string GetGitBranchName()
+    {
+        // 优先从Jenkins环境变量读取分支（Jenkins构建时会自动注入GIT_BRANCH变量）
+        string jenkinsBranch = Environment.GetEnvironmentVariable("GIT_BRANCH");
+        if (!string.IsNullOrWhiteSpace(jenkinsBranch))
+        {
+            // 去除origin/前缀（比如origin/main会变成main）
+            return jenkinsBranch.Replace("origin/", "").Trim();
+        }
+
+        // 如果本地调试（非Jenkins环境），则直接读取本地Git分支
+        try
+        {
+            string projectRoot = Path.GetDirectoryName(Application.dataPath);
+            string headPath = Path.Combine(projectRoot, ".git", "HEAD");
+            if (File.Exists(headPath))
+            {
+                string headContent = File.ReadAllText(headPath).Trim();
+                if (headContent.StartsWith("ref: refs/heads/"))
+                {
+                    return headContent.Substring("ref: refs/heads/".Length).Trim();
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[JenkinsBuild] 读取本地Git分支失败: {e.Message}");
+        }
+
+        // 读取失败返回默认值
+        return "未知分支";
     }
 
     public static void BuildAndroid()
     {
         try
         {
-            // 获取项目根目录（Assets文件夹的父目录）
-            // Application.dataPath 返回类似：C:/Project/Assets
-            // 去掉末尾的 "/Assets" 就是项目根目录
-            string projectRoot = Path.GetDirectoryName(Application.dataPath);
+            // ========== 新增：构建开始就打印分支信息 ==========
+            string branchName = GetGitBranchName();
+            Debug.Log($"[JenkinsBuild] 当前构建分支: {branchName}");
 
-            // 或者更简洁的方式：直接使用 Application.dataPath + ".."
+            // 获取项目根目录
+            string projectRoot = Path.GetDirectoryName(Application.dataPath);
             string projectRootAlt = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
 
             Debug.Log($"[JenkinsBuild] 项目根目录（来自Application.dataPath）: {projectRoot}");
             Debug.Log($"[JenkinsBuild] 项目根目录（备用方式）: {projectRootAlt}");
 
             // 构建输出路径
-
-       
             string outputDir = Path.Combine(projectRoot, "Build", "Android");
             string outputPath = GetApkPath();
 
@@ -115,7 +145,7 @@ public class JenkinsBuild
     static void SendDingTalkNotice()
     {
         // 1. 直接使用Webhook，不需要加签参数
-        
+
         string webhook = Environment.GetEnvironmentVariable("DINGTALK_WEBHOOK");
         if (string.IsNullOrWhiteSpace(webhook))
             throw new InvalidOperationException("缺少环境变量 DINGTALK_WEBHOOK");
@@ -123,6 +153,8 @@ public class JenkinsBuild
         // 2. 判断构建结果
         string buildResult = Environment.GetEnvironmentVariable("BUILD_RESULT") ?? "SUCCESS";
         string apkPath = GetApkPath();
+        // ========== 新增：获取分支用于钉钉通知 ==========
+        string branchName = GetGitBranchName();
 
         // 3. 从Jenkins环境变量里拿构建信息
         string jenkinsUrl = Environment.GetEnvironmentVariable("JENKINS_URL") ?? "http://localhost:8080/";
@@ -139,12 +171,14 @@ public class JenkinsBuild
         {
             // 构建成功且有APK
             float apkSize = new FileInfo(apkPath).Length / 1024f / 1024f;
-            string downloadUrl = $"{jenkinsUrl}job/{jobName}/{buildNumber}/artifact/Build/Android/Game_0.1.apk";
+            string downloadUrl = $"{jenkinsUrl}job/{jobName}/{buildNumber}/artifact/Build/Android/{GetApkName()}";
 
             title = "Android构建成功";
             markdownText = $"### 🚀 Android 构建成功 \n" +
                            $"> **任务名称**: {jobName} \n" +
-                           $"> **构建版本**: 0.1 \n" +
+                           // ========== 新增：钉钉通知展示分支信息 ==========
+                           $"> **构建分支**: {branchName} \n" +
+                           $"> **构建版本**: {Application.version} \n" +
                            $"> **APK大小**: {apkSize:F2} MB \n" +
                            $"> **构建人**: {buildUser} \n" +
                            $"> **下载地址**: [点击下载APK]({downloadUrl})";
@@ -155,7 +189,9 @@ public class JenkinsBuild
             title = "Android构建失败";
             markdownText = $"### ❌ Android 构建失败 \n" +
                            $"> **任务名称**: {jobName} \n" +
-                           $"> **构建版本**: — \n" +
+                           // ========== 新增：失败通知也展示分支信息 ==========
+                           $"> **构建分支**: {branchName} \n" +
+                           $"> **构建版本**: {Application.version} \n" +
                            $"> **APK大小**: — \n" +
                            $"> **构建人**: {buildUser} \n" +
                            $"> **失败原因**: {failReason} \n" +
