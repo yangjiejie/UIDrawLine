@@ -9,6 +9,31 @@ using UnityEngine;
 
 public class JenkinsBuild
 {
+
+    static string GetApkName(bool isApk = true)
+    {
+        StringBuilder sb = new StringBuilder(); //test_baloot_v1.
+
+       
+
+        sb.Append(Application.productName);
+        sb.Append("_v");
+        sb.Append(Application.version).Append(".");
+
+        var time = System.DateTime.Now.ToString("MMdd.HHmm");
+        sb.Append(time);
+        if (isApk)
+        {
+            sb.Append(".apk");
+        }
+        else
+        {
+            sb.Append(".aab");
+        }
+
+        return sb.ToString();
+    }
+
     public static void BuildAndroid()
     {
         try
@@ -25,7 +50,8 @@ public class JenkinsBuild
             Debug.Log($"[JenkinsBuild] 项目根目录（备用方式）: {projectRootAlt}");
 
             // 构建输出路径
-            string apkName = $"Game_{PlayerSettings.bundleVersion}.apk";
+
+            string apkName = GetApkName();
             string outputDir = Path.Combine(projectRoot, "Build", "Android");
             string outputPath = Path.Combine(outputDir, apkName);
 
@@ -80,11 +106,14 @@ public class JenkinsBuild
     static void SendDingTalkNotice()
     {
         // 1. 直接使用Webhook，不需要加签参数
-        string webhook = "https://oapi.dingtalk.com/robot/send?access_token=ce0749e84e36fc823dd6bc2ec92490aa5645ac1c340d7bbc1c771bd8ee0df65c";
+        
+        string webhook = Environment.GetEnvironmentVariable("DINGTALK_WEBHOOK");
+        if (string.IsNullOrWhiteSpace(webhook))
+            throw new InvalidOperationException("缺少环境变量 DINGTALK_WEBHOOK");
 
         // 2. 判断构建结果
         string buildResult = Environment.GetEnvironmentVariable("BUILD_RESULT") ?? "SUCCESS";
-        string apkPath = Path.Combine(Directory.GetCurrentDirectory(), "Build/Android/Game_0.1.apk");
+        string apkPath = Path.Combine(Directory.GetCurrentDirectory(), $"Build/Android/{GetApkName()}");
 
         // 3. 从Jenkins环境变量里拿构建信息
         string jenkinsUrl = Environment.GetEnvironmentVariable("JENKINS_URL") ?? "http://localhost:8080/";
