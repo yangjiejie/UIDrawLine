@@ -32,7 +32,7 @@ public class JenkinsBuild
 
         
         
-        string buildPath = $"Build/Android/Game_{PlayerSettings.bundleVersion}.apk";
+        string buildPath = $"Build/Android/test.apk";
         BuildTarget target = BuildTarget.Android;
 
         // Android 额外配置（如 Gradle 构建、签名）
