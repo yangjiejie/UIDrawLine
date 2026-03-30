@@ -1,14 +1,135 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
+using UnityEditor.Compilation;
 using UnityEngine;
+using UnityEngine.Assertions.Must;
 
 public class JenkinsBuild
 {
+    static string DEBUG_MODE = "DEBUG_MODE";
+    static int compileTryCount = 1;
+    static int compileTimeOut = 120;
+    static event Action compleEvent;
+
+    enum BuildEnv
+    {
+        none,
+        release,
+        develop,       
+        test,
+    }
+
+
+
+    static BuildEnv G_BuildEnv = BuildEnv.none;
+ 
+
+
+
+   
+    private static string GetPlatformName()
+    {
+        switch (Application.platform)
+        {
+            
+            case RuntimePlatform.OSXEditor: return "ios";
+            case RuntimePlatform.OSXPlayer: return "ios";
+           
+            case RuntimePlatform.IPhonePlayer: return "ios";
+            case RuntimePlatform.Android: return "android";
+            
+            default: return "android";
+        }
+    }
+    static void BuildAssetBundle()
+    {
+      
+        Debug.Log("打ab包");
+        var root = Application.dataPath.Replace("Assets", "");
+        root = root.Replace("\\", "/");
+        var assetBundlesFolder = Path.Combine(root, "AssetBundles");
+        if(Directory.Exists(assetBundlesFolder))
+        {
+            Directory.Delete(assetBundlesFolder, true);
+        }
+        else
+        {
+            Directory.CreateDirectory(assetBundlesFolder);
+        }
+        BuildPipeline.BuildAssetBundles(assetBundlesFolder, BuildAssetBundleOptions.None, EditorUserBuildSettings.activeBuildTarget);
+        
+        Debug.Log("打ab包完成");
+    }
+    /// <summary>
+    /// 设置编译环境 
+    /// </summary>
+    static void SetCompileEvn()
+    {
+        var grp = BuildPipeline.GetBuildTargetGroup(EditorUserBuildSettings.activeBuildTarget);
+        var symbols =  PlayerSettings.GetScriptingDefineSymbolsForGroup(grp);
+        var symbol_list = symbols.Split(";").ToHashSet();
+        bool isChanged = false;
+        if(G_BuildEnv == BuildEnv.develop)
+        {
+            if(symbol_list.Add("DEBUG_MODE"))
+            {
+                isChanged = true;               
+            }
+            
+        }
+        else
+        {
+            if(symbol_list.Contains("DEBUG_MODE"))
+            {
+                isChanged = true;
+                symbol_list.Remove("DEBUG_MODE");
+                
+            }            
+        }
+        if (isChanged)
+        {
+            PlayerSettings.SetScriptingDefineSymbolsForGroup(grp, string.Join(";", symbol_list));
+        }
+        AssetDatabase.Refresh();
+    }
+  
+    static void ParseEnvFromArgs()
+    {
+        G_BuildEnv = BuildEnv.none;
+        var args = Environment.GetCommandLineArgs();
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (args[i] == "-environment")
+            {
+                var str = args[i + 1].Trim();
+                if(str == "release")
+                {
+                    G_BuildEnv = BuildEnv.release;
+                }
+                else if(str == "develop")
+                {
+                    G_BuildEnv = BuildEnv.develop;
+                }
+                else if(str == "test")
+                {
+                    G_BuildEnv = BuildEnv.test;
+                }
+
+                if(G_BuildEnv != BuildEnv.none)
+                {
+                    break;
+                }                
+                UnityEngine.Debug.LogError($"[ParseEnv] 未知环境字符串：{str}");
+            }
+        }
+        G_BuildEnv = BuildEnv.develop;
+    }
 
     static string GetApkName(bool isApk = true)
     {
@@ -74,10 +195,99 @@ public class JenkinsBuild
         return "未知分支";
     }
 
+    private static void SafeWaitForCompile(Action onComplete)
+    {
+        if (!EditorApplication.isCompiling)
+        {
+            onComplete?.Invoke();
+            return;
+        }
+
+        if (Application.isBatchMode)
+        {
+            // BatchMode: 必须轮询，事件可能不触发
+            EditorApplication.update += PollCompile;
+            void PollCompile()
+            {
+                if (!EditorApplication.isCompiling)
+                {
+                    EditorApplication.update -= PollCompile;
+                    // 稍微延迟一帧，确保编译器完全静止
+                    EditorApplication.delayCall += ()=>
+                    {
+                        onComplete?.Invoke();
+                        onComplete = null;
+                    };
+                }
+            }
+        }
+        else
+        {
+            // 编辑器模式：使用事件，响应更快
+            Action<object> handler = null;
+            handler = _ =>
+            {
+                CompilationPipeline.compilationFinished -= handler;
+                EditorApplication.delayCall += () =>
+                {
+                    onComplete?.Invoke();
+                    onComplete = null;
+                };
+            };
+            CompilationPipeline.compilationFinished += handler;
+        }
+    }
+    [MenuItem("Tools/jenkins测试")]
+    public static void BuildStep1()
+    {
+        var grp = BuildPipeline.GetBuildTargetGroup(EditorUserBuildSettings.activeBuildTarget);
+        var symbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(grp);
+        var symbol_list = symbols.Split(";").ToHashSet();
+
+        symbol_list.Add("DEBUG_MODE2");
+    
+        PlayerSettings.SetScriptingDefineSymbolsForGroup(grp, string.Join(";", symbol_list));
+
+         
+        SafeWaitForCompile(() =>
+        {
+            Debug.Log("✅ [CI-Step-1] 环境配置完成，编译结束。");
+            if (Application.isBatchMode) EditorApplication.Exit(0);
+        });
+
+    }
+
+    public static void BuildStep2()
+    {
+
+        BuildAssetBundle();
+
+
+        SafeWaitForCompile(() =>
+        {
+            Debug.Log("✅ [CI-Step-1] 环境配置完成，编译结束。");
+            if (Application.isBatchMode) EditorApplication.Exit(0);
+        });
+
+    }
+
+
+
+
+
     public static void BuildAndroid()
     {
         try
         {
+            //解析环境参数 获取
+            ParseEnvFromArgs();
+
+            SetCompileEvn();
+
+            
+
+            BuildAssetBundle(); // 打ab包 
+
             // ========== 新增：构建开始就打印分支信息 ==========
             string branchName = GetGitBranchName();
             Debug.Log($"[JenkinsBuild] 当前构建分支: {branchName}");
