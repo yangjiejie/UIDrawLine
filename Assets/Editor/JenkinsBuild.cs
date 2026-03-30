@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -13,10 +14,12 @@ using UnityEngine.Assertions.Must;
 public class JenkinsBuild
 {
     static string DEBUG_MODE = "DEBUG_MODE";
-    static int compileTryCount = 1;
-    static int compileTimeOut = 120;
-    static event Action compleEvent;
 
+
+
+    static TimeSpan buildTime;
+    static TimeSpan endBuildTime;
+    static string buildTimeString;
     enum BuildEnv
     {
         none,
@@ -237,7 +240,8 @@ public class JenkinsBuild
     [MenuItem("Tools/jenkins测试")]
     public static void BuildStep1()
     {
-
+        buildTime = TimeSpan.FromTicks(DateTime.Now.Ticks);
+        buildTimeString = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         ParseEnvFromArgs();
 
         SetCompileEvn();
@@ -422,13 +426,15 @@ public class JenkinsBuild
         // 4. 根据构建结果生成不同消息
         string markdownText;
         string title;
-
+        endBuildTime = TimeSpan.FromTicks(DateTime.Now.Ticks);
+        TimeSpan duration = endBuildTime - buildTime;
+        string durationStr = duration.ToString(@"mm\:ss");
         if ((buildResult == "SUCCESS" || buildResult == "SUCCESSFUL") && File.Exists(apkPath))
         {
             // 构建成功且有APK
             float apkSize = new FileInfo(apkPath).Length / 1024f / 1024f;
             string downloadUrl = $"{jenkinsUrl}job/{jobName}/{buildNumber}/artifact/Build/Android/{GetApkName()}";
-
+           
             title = "Android构建成功";
             markdownText = $"### 🚀 Android 构建成功 \n" +
                            $"> **任务名称**: {jobName} \n" +
@@ -436,7 +442,8 @@ public class JenkinsBuild
                            $"> **构建分支**: {branchName} \n" +
                            $"> **构建版本**: {Application.version} \n" +
                            $"> **APK大小**: {apkSize:F2} MB \n" +
-                           $"> **构建人**: {buildUser} \n" +
+                           $"> **开始构建时刻**: {buildTimeString} \n" +
+                           $"> **构建时长**: {durationStr} \n" +
                            $"> **下载地址**: [点击下载APK]({downloadUrl})";
         }
         else
@@ -449,7 +456,8 @@ public class JenkinsBuild
                            $"> **构建分支**: {branchName} \n" +
                            $"> **构建版本**: {Application.version} \n" +
                            $"> **APK大小**: — \n" +
-                           $"> **构建人**: {buildUser} \n" +
+                            $"> **开始构建时刻**: {buildTimeString} \n" +
+                           $"> **构建时长**: {durationStr} \n" +
                            $"> **失败原因**: {failReason} \n" +
                            $"> **下载地址**: —";
         }
