@@ -65,6 +65,9 @@ namespace SCG
         }
         void Awake()
         {
+#if DEBUG_MODE2
+            Debug.Log("1111111");
+#endif
             var preview = new GameObject("",typeof(RectTransform));
             preview.name = "drawLinePreview";
             preview.transform.SetParent(this.transform, false);
