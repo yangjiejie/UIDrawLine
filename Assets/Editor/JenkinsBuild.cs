@@ -240,18 +240,16 @@ public class JenkinsBuild
     [MenuItem("Tools/jenkins测试")]
     public static void BuildStep1()
     {
-        var grp = BuildPipeline.GetBuildTargetGroup(EditorUserBuildSettings.activeBuildTarget);
-        var symbols = PlayerSettings.GetScriptingDefineSymbolsForGroup(grp);
-        var symbol_list = symbols.Split(";").ToHashSet();
 
-        symbol_list.Add("DEBUG_MODE2");
-    
-        PlayerSettings.SetScriptingDefineSymbolsForGroup(grp, string.Join(";", symbol_list));
+        ParseEnvFromArgs();
+
+        SetCompileEvn();
+        
 
          
         SafeWaitForCompile(() =>
         {
-            Debug.Log("✅ [CI-Step-1] 环境配置完成，编译结束。");
+            Debug.Log("✅ [CI-Step] 环境配置完成，编译结束。");
             if (Application.isBatchMode) EditorApplication.Exit(0);
         });
 
@@ -265,91 +263,143 @@ public class JenkinsBuild
 
         SafeWaitForCompile(() =>
         {
-            Debug.Log("✅ [CI-Step-1] 环境配置完成，编译结束。");
+            Debug.Log("✅ [CI-Step] 环境配置完成，编译结束。");
             if (Application.isBatchMode) EditorApplication.Exit(0);
         });
 
     }
-
-
-
-
-
-    public static void BuildAndroid()
+    public static void BuildStep3()
     {
         try
         {
             //解析环境参数 获取
-            ParseEnvFromArgs();
-
-            SetCompileEvn();
-
-            
-
-            BuildAssetBundle(); // 打ab包 
-
-            // ========== 新增：构建开始就打印分支信息 ==========
-            string branchName = GetGitBranchName();
-            Debug.Log($"[JenkinsBuild] 当前构建分支: {branchName}");
-
-            // 获取项目根目录
-            string projectRoot = Path.GetDirectoryName(Application.dataPath);
-            string projectRootAlt = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-
-            Debug.Log($"[JenkinsBuild] 项目根目录（来自Application.dataPath）: {projectRoot}");
-            Debug.Log($"[JenkinsBuild] 项目根目录（备用方式）: {projectRootAlt}");
-
-            // 构建输出路径
-            string outputDir = Path.Combine(projectRoot, "Build", "Android");
-            string outputPath = GetApkPath();
-
-            Debug.Log($"[JenkinsBuild] APK输出路径: {outputPath}");
-
-            // 创建目录
-            if (!Directory.Exists(outputDir))
-            {
-                Directory.CreateDirectory(outputDir);
-                Debug.Log($"[JenkinsBuild] 已创建输出目录: {outputDir}");
-            }
-            var sence = new EditorBuildSettingsScene[] { new EditorBuildSettingsScene("Assets/Scenes/main.unity", true) };
-            // 构建配置
-            BuildPlayerOptions options = new BuildPlayerOptions
-            {
-                scenes = sence
-                    .Where(s => s.enabled)
-                    .Select(s => s.path)
-                    .ToArray(),
-                locationPathName = outputPath,
-                target = BuildTarget.Android,
-                options = BuildOptions.None
-            };
-
-            // 执行构建
-            BuildReport report = BuildPipeline.BuildPlayer(options);
-
-            // 验证构建结果
-            if (report.summary.result == BuildResult.Succeeded && File.Exists(outputPath))
-            {
-                var apkSize = new FileInfo(outputPath).Length / 1024.0 / 1024.0;
-                Debug.Log($"[JenkinsBuild] ✅ 构建成功！APK大小: {apkSize:F2} MB");
-                Debug.Log($"[JenkinsBuild] ✅ APK最终路径: {outputPath}");
-            }
-            else
-            {
-                Debug.LogError($"[JenkinsBuild] ❌ 构建失败，APK不存在：{outputPath}");
-                throw new IOException("APK生成失败");
-            }
+            BuildApk();
         }
         catch (System.Exception e)
         {
             Debug.LogError($"[JenkinsBuild] ❌ 构建异常: {e.Message}\n{e.StackTrace}");
             throw;
         }
-        finally
+
+        
+
+        SafeWaitForCompile(() =>
+        {
+            Debug.Log("✅ [CI-Step] 环境配置完成，编译结束。");
+            if (Application.isBatchMode) EditorApplication.Exit(0);
+        });
+
+    }
+    public static void BuildStep4()
+    {
+        try
         {
             SendDingTalkNotice();
         }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[JenkinsBuild] ❌ 构建异常: {e.Message}\n{e.StackTrace}");
+            throw;
+        }
+        SafeWaitForCompile(() =>
+        {
+            Debug.Log("✅ [CI-Step] 发送钉钉完成。");
+            if (Application.isBatchMode) EditorApplication.Exit(0);
+        });
+
     }
+    public static void BuildStep5()
+    {
+        SafeWaitForCompile(() =>
+        {
+            Debug.Log("✅ [CI-Step] BuildStep5。");
+            if (Application.isBatchMode) EditorApplication.Exit(0);
+        });
+    }
+    public static void BuildStep6()
+    {
+        SafeWaitForCompile(() =>
+        {
+            Debug.Log("✅ [CI-Step] BuildStep6。");
+            if (Application.isBatchMode) EditorApplication.Exit(0);
+        });
+    }
+    public static void BuildStep7()
+    {
+        SafeWaitForCompile(() =>
+        {
+            Debug.Log("✅ [CI-Step] BuildStep7。");
+            if (Application.isBatchMode) EditorApplication.Exit(0);
+        });
+    }
+    public static void BuildStep8()
+    {
+        SafeWaitForCompile(() =>
+        {
+            Debug.Log("✅ [CI-Step] BuildStep8。");
+            if (Application.isBatchMode) EditorApplication.Exit(0);
+        });
+    }
+
+
+
+    static void BuildApk()
+    {
+        // ========== 新增：构建开始就打印分支信息 ==========
+        string branchName = GetGitBranchName();
+        Debug.Log($"[JenkinsBuild] 当前构建分支: {branchName}");
+
+        // 获取项目根目录
+        string projectRoot = Path.GetDirectoryName(Application.dataPath);
+        string projectRootAlt = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+
+        Debug.Log($"[JenkinsBuild] 项目根目录（来自Application.dataPath）: {projectRoot}");
+        Debug.Log($"[JenkinsBuild] 项目根目录（备用方式）: {projectRootAlt}");
+
+        // 构建输出路径
+        string outputDir = Path.Combine(projectRoot, "Build", "Android");
+        string outputPath = GetApkPath();
+
+        Debug.Log($"[JenkinsBuild] APK输出路径: {outputPath}");
+
+        // 创建目录
+        if (!Directory.Exists(outputDir))
+        {
+            Directory.CreateDirectory(outputDir);
+            Debug.Log($"[JenkinsBuild] 已创建输出目录: {outputDir}");
+        }
+        var sence = new EditorBuildSettingsScene[] { new EditorBuildSettingsScene("Assets/Scenes/main.unity", true) };
+        // 构建配置
+        BuildPlayerOptions options = new BuildPlayerOptions
+        {
+            scenes = sence
+                .Where(s => s.enabled)
+                .Select(s => s.path)
+                .ToArray(),
+            locationPathName = outputPath,
+            target = BuildTarget.Android,
+            options = BuildOptions.None
+        };
+
+        // 执行构建
+        BuildReport report = BuildPipeline.BuildPlayer(options);
+
+        // 验证构建结果
+        if (report.summary.result == BuildResult.Succeeded && File.Exists(outputPath))
+        {
+            var apkSize = new FileInfo(outputPath).Length / 1024.0 / 1024.0;
+            Debug.Log($"[JenkinsBuild] ✅ 构建成功！APK大小: {apkSize:F2} MB");
+            Debug.Log($"[JenkinsBuild] ✅ APK最终路径: {outputPath}");
+        }
+        else
+        {
+            Debug.LogError($"[JenkinsBuild] ❌ 构建失败，APK不存在：{outputPath}");
+            throw new IOException("APK生成失败");
+        }
+    }
+
+
+
     [MenuItem("Tools/测试钉钉消息")]
     static void SendDingTalkNotice()
     {
