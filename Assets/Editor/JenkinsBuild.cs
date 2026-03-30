@@ -58,10 +58,7 @@ public class JenkinsBuild
         {
             Directory.Delete(assetBundlesFolder, true);
         }
-        else
-        {
-            Directory.CreateDirectory(assetBundlesFolder);
-        }
+        Directory.CreateDirectory(assetBundlesFolder);
         BuildPipeline.BuildAssetBundles(assetBundlesFolder, BuildAssetBundleOptions.None, EditorUserBuildSettings.activeBuildTarget);
         
         Debug.Log("打ab包完成");
