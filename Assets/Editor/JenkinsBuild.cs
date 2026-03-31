@@ -19,16 +19,16 @@ public class JenkinsBuild
     internal class JenKinsConfig
     {
         [SerializeField]
-        public TimeSpan buildTime;
+        public DateTime buildTime;
         [SerializeField]
-        public TimeSpan endBuildTime;
+        public DateTime endBuildTime;
         [SerializeField]
         public string buildTimeString;
     }
 
 
-    static TimeSpan buildTime;
-    static TimeSpan endBuildTime;
+    static DateTime buildTime;
+    static DateTime endBuildTime;
     static string buildTimeString;
     enum BuildEnv
     {
@@ -253,8 +253,8 @@ public class JenkinsBuild
         {
             File.Delete(jenkinsJsonPath);
         }
-        
-        buildTime = TimeSpan.FromTicks(DateTime.Now.Ticks);
+
+        buildTime = DateTime.Now;
         buildTimeString = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         JenKinsConfig config = new JenKinsConfig();
         config.buildTime = buildTime; 
@@ -446,8 +446,9 @@ public class JenkinsBuild
         // 4. 根据构建结果生成不同消息
         string markdownText;
         string title;
-        endBuildTime = TimeSpan.FromTicks(DateTime.Now.Ticks);
-        
+        endBuildTime = DateTime.Now;
+
+
 
         var jenkinsJsonPath = Path.Combine(Application.persistentDataPath, "jenkins.json");
 
