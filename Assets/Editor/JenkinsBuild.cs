@@ -457,9 +457,9 @@ public class JenkinsBuild
         var config = JsonUtility.FromJson<JenKinsConfig>(jsonString);
         buildTime = config.buildTime;
         buildTimeString = config.buildTimeString;
-
+        config.endBuildTime = endBuildTime;
         TimeSpan duration = endBuildTime - buildTime;
-        buildTimeString = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        
         
         File.WriteAllText(jenkinsJsonPath, JsonUtility.ToJson(config));
 
