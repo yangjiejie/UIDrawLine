@@ -16,6 +16,16 @@ public class JenkinsBuild
     static string DEBUG_MODE = "DEBUG_MODE";
 
 
+    internal class JenKinsConfig
+    {
+        [SerializeField]
+        public TimeSpan buildTime;
+        [SerializeField]
+        public TimeSpan endBuildTime;
+        [SerializeField]
+        public string buildTimeString;
+    }
+
 
     static TimeSpan buildTime;
     static TimeSpan endBuildTime;
@@ -240,8 +250,18 @@ public class JenkinsBuild
     [MenuItem("Tools/jenkins测试")]
     public static void BuildStep1()
     {
+        var jenkinsJsonPath = Path.Combine(Application.persistentDataPath, "jenkins.json");
+        if(File.Exists(jenkinsJsonPath))
+        {
+            File.Delete(jenkinsJsonPath);
+        }
+        
         buildTime = TimeSpan.FromTicks(DateTime.Now.Ticks);
         buildTimeString = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        JenKinsConfig config = new JenKinsConfig();
+        config.buildTime = buildTime; 
+        config.buildTimeString = buildTimeString;
+        File.WriteAllText(jenkinsJsonPath, JsonUtility.ToJson(config));
         ParseEnvFromArgs();
 
         SetCompileEvn();
@@ -293,15 +313,7 @@ public class JenkinsBuild
     }
     public static void BuildStep4()
     {
-        try
-        {
-            SendDingTalkNotice();
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"[JenkinsBuild] ❌ 构建异常: {e.Message}\n{e.StackTrace}");
-            throw;
-        }
+        
         SafeWaitForCompile(() =>
         {
             Debug.Log("✅ [CI-Step] 发送钉钉完成。");
@@ -321,7 +333,7 @@ public class JenkinsBuild
     {
         SafeWaitForCompile(() =>
         {
-            Debug.Log("✅ [CI-Step] BuildStep6。");
+            Debug.Log("✅ BuildStep6");
             if (Application.isBatchMode) EditorApplication.Exit(0);
         });
     }
@@ -329,15 +341,25 @@ public class JenkinsBuild
     {
         SafeWaitForCompile(() =>
         {
-            Debug.Log("✅ [CI-Step] BuildStep7。");
+            Debug.Log("✅ BuildStep7。");
             if (Application.isBatchMode) EditorApplication.Exit(0);
         });
     }
     public static void BuildStep8()
     {
+        try
+        {
+            SendDingTalkNotice();
+        }
+        catch(Exception e)
+        {
+            Debug.LogError($"[JenkinsBuild] ❌ 发动钉钉异常: {e.Message}\n{e.StackTrace}");
+            throw;
+        }
+       
         SafeWaitForCompile(() =>
         {
-            Debug.Log("✅ [CI-Step] BuildStep8。");
+            Debug.Log("✅ BuildStep8。");
             if (Application.isBatchMode) EditorApplication.Exit(0);
         });
     }
@@ -427,7 +449,20 @@ public class JenkinsBuild
         string markdownText;
         string title;
         endBuildTime = TimeSpan.FromTicks(DateTime.Now.Ticks);
+        
+
+        var jenkinsJsonPath = Path.Combine(Application.persistentDataPath, "jenkins.json");
+
+        var jsonString = File.ReadAllText(jenkinsJsonPath);
+        var config = JsonUtility.FromJson<JenKinsConfig>(jsonString);
+        buildTime = config.buildTime;
+        buildTimeString = config.buildTimeString;
+
         TimeSpan duration = endBuildTime - buildTime;
+        buildTimeString = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        
+        File.WriteAllText(jenkinsJsonPath, JsonUtility.ToJson(config));
+
         string durationStr = duration.ToString(@"mm\:ss");
         if ((buildResult == "SUCCESS" || buildResult == "SUCCESSFUL") && File.Exists(apkPath))
         {
