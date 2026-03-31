@@ -20,16 +20,16 @@ public class JenkinsBuild
     internal class JenKinsConfig
     {
         [SerializeField]
-        public DateTime buildTime;
+        public long buildTime;
         [SerializeField]
-        public DateTime endBuildTime;
+        public long endBuildTime;
         [SerializeField]
         public string buildTimeString;
     }
 
 
-    static DateTime buildTime;
-    static DateTime endBuildTime;
+    static long buildTime;
+    static long endBuildTime;
     static string buildTimeString;
     enum BuildEnv
     {
@@ -286,7 +286,7 @@ public class JenkinsBuild
             File.Delete(jenkinsJsonPath);
         }
 
-        buildTime = DateTime.Now;
+        buildTime = DateTime.Now.Ticks;
         buildTimeString = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         JenKinsConfig config = new JenKinsConfig();
         config.buildTime = buildTime; 
@@ -478,7 +478,7 @@ public class JenkinsBuild
         // 4. 根据构建结果生成不同消息
         string markdownText;
         string title;
-        endBuildTime = DateTime.Now;
+        endBuildTime = DateTime.Now.Ticks;
 
 
 
@@ -494,8 +494,8 @@ public class JenkinsBuild
 
 
         File.WriteAllText(jenkinsJsonPath, JsonUtility.ToJson(config));
-
-        string durationStr = GetTimeGap(buildTime, endBuildTime);
+       
+        string durationStr = GetTimeGap(new DateTime(buildTime, DateTimeKind.Utc), new DateTime(endBuildTime, DateTimeKind.Utc));
         if ((buildResult == "SUCCESS" || buildResult == "SUCCESSFUL") && File.Exists(apkPath))
         {
             // 构建成功且有APK
