@@ -112,33 +112,31 @@ public class JenkinsBuild
     static void ParseEnvFromArgs()
     {
         G_BuildEnv = BuildEnv.none;
-        var args = Environment.GetCommandLineArgs();
-        for (int i = 0; i < args.Length - 1; i++)
-        {
-            if (args[i] == "-environment")
-            {
-                var str = args[i + 1].Trim();
-                if(str == "release")
-                {
-                    G_BuildEnv = BuildEnv.release;
-                }
-                else if(str == "develop")
-                {
-                    G_BuildEnv = BuildEnv.develop;
-                }
-                else if(str == "test")
-                {
-                    G_BuildEnv = BuildEnv.test;
-                }
+        string buildType = Environment.GetEnvironmentVariable("BUILD_TYPE", EnvironmentVariableTarget.Process);
 
-                if(G_BuildEnv != BuildEnv.none)
-                {
-                    break;
-                }                
-                UnityEngine.Debug.LogError($"[ParseEnv] 未知环境字符串：{str}");
-            }
+        // 容错处理：如果取不到，默认用 Debug
+        if (string.IsNullOrEmpty(buildType))
+        {
+            G_BuildEnv = BuildEnv.develop;
+            Console.WriteLine("未检测到 BUILD_TYPE 参数，使用默认值: dev");
         }
-        G_BuildEnv = BuildEnv.develop;
+
+        Console.WriteLine($"当前构建类型: {buildType}");
+
+        // 后续根据构建类型执行不同逻辑
+        switch (buildType)
+        {
+            case "dev":
+                G_BuildEnv = BuildEnv.develop;
+                break;
+            case "release":
+                G_BuildEnv = BuildEnv.release;
+                break;
+            case "test":
+                G_BuildEnv = BuildEnv.test;
+                break;
+        }
+        
     }
 
     static string GetApkName(bool isApk = true)
