@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Xml.Schema;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.Compilation;
@@ -14,7 +15,7 @@ using UnityEngine.Assertions.Must;
 public class JenkinsBuild
 {
     static string DEBUG_MODE = "DEBUG_MODE";
-
+    public const string appName = "balootna";
 
     internal class JenKinsConfig
     {
@@ -245,7 +246,38 @@ public class JenkinsBuild
             CompilationPipeline.compilationFinished += handler;
         }
     }
-    [MenuItem("Tools/jenkins测试")]
+
+    /// <summary>
+    /// 计算两个 DateTime 的时间间隔，返回友好的格式化字符串
+    /// </summary>
+    /// <param name="startTime">开始时间</param>
+    /// <param name="endTime">结束时间</param>
+    /// <returns>格式化的时间间隔，支持自动适配天/时/分/秒</returns>
+    /// <summary>
+    /// 计算两个DateTime的时间间隔，智能格式化显示
+    /// 小于1小时不显示小时部分，大于等于1小时显示完整HH:mm:ss
+    /// </summary>
+    /// <param name="startTime">开始时间</param>
+    /// <param name="endTime">结束时间</param>
+    /// <returns>智能格式化的时间间隔</returns>
+    public static string GetTimeGap(DateTime startTime, DateTime endTime)
+    {
+        // 计算时间间隔，取绝对值确保正数
+        TimeSpan duration = endTime > startTime ? endTime - startTime : startTime - endTime;
+
+        // 判断是否小于1小时
+        if (duration.TotalHours < 1)
+        {
+            // 小于1小时：显示 mm:ss
+            return $"{duration.Minutes:D2}:{duration.Seconds:D2}";
+        }
+        else
+        {
+            // 大于等于1小时：显示 HH:mm:ss
+            return $"{(int)duration.TotalHours:D2}:{duration.Minutes:D2}:{duration.Seconds:D2}";
+        }
+    }
+
     public static void BuildStep1()
     {
         var jenkinsJsonPath = Path.Combine(Application.persistentDataPath, "jenkins.json");
@@ -438,7 +470,7 @@ public class JenkinsBuild
 
         // 3. 从Jenkins环境变量里拿构建信息
         string jenkinsUrl = Environment.GetEnvironmentVariable("JENKINS_URL") ?? "http://localhost:8080/";
-        string jobName = Environment.GetEnvironmentVariable("JOB_NAME") ?? "balootna";
+        string jobName = Environment.GetEnvironmentVariable("JOB_NAME") ?? appName;
         string buildNumber = Environment.GetEnvironmentVariable("BUILD_NUMBER") ?? "1";
         string buildUser = Environment.GetEnvironmentVariable("BUILD_USER") ?? "jenkins";
         string failReason = Environment.GetEnvironmentVariable("FAIL_REASON") ?? "未知错误";
@@ -457,12 +489,13 @@ public class JenkinsBuild
         buildTime = config.buildTime;
         buildTimeString = config.buildTimeString;
         config.endBuildTime = endBuildTime;
-        TimeSpan duration = endBuildTime - buildTime;
-        
-        
+       
+
+
+
         File.WriteAllText(jenkinsJsonPath, JsonUtility.ToJson(config));
 
-        string durationStr = duration.ToString(@"mm\:ss");
+        string durationStr = GetTimeGap(buildTime, endBuildTime);
         if ((buildResult == "SUCCESS" || buildResult == "SUCCESSFUL") && File.Exists(apkPath))
         {
             // 构建成功且有APK
